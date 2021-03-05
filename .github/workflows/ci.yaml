@@ -10,7 +10,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   REPO: https://github.com/${{ github.repository }}
-  IMG_NAME: ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_REF#refs/heads/}
+  IMG_NAME: ghcr.io/${{ github.repository.lowercase }}:${GITHUB_REF#refs/heads/}
 
 jobs:
 #  test:
