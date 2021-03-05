@@ -46,8 +46,7 @@ jobs:
 
     - name: Build and push
       run: |
-            echo REPO_LOWER=$(echo ${{ env.REPO }} | tr '[:upper:]' '[:lower:]') >> $REPO
-            echo $REPO
+            echo $(echo ${{ env.REPO }} ) | tr '[:upper:]' '[:lower:]')
 #            docker buildx build \
 #            --output "type=image,push=true" \
 #            --platform linux/amd64,linux/arm64 \
