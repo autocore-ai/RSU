@@ -51,4 +51,4 @@ jobs:
             --platform linux/amd64,linux/arm64 \
             --build-arg REPO=${{ env.REPO }} \
             --tag $DOCKER_IMAGE \
-            --file Dockerfile .
+            --file ./Dockerfile .
