@@ -46,4 +46,9 @@ jobs:
     - name: Build and push
       run: |
             DOCKER_IMAGE=$(echo $((echo "ghcr.io/${{ github.repository }}:${GITHUB_REF#refs/heads/}" ) | tr '[:upper:]' '[:lower:]'))
-            echo $DOCKER_IMAGE
+            docker buildx build \
+            --output "type=image,push=true" \
+            --platform linux/amd64,linux/arm64 \
+            --build-arg REPO=${{ env.REPO }} \
+            --tag $DOCKER_IMAGE \
+            --file Dockerfile .
