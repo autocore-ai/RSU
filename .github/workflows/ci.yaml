@@ -2,15 +2,15 @@ name: ci
 
 on:
   push:
-    branches: [ main, develop, release ]
+    branches: [ '**' ]
   pull_request:
-    branches: [ main, develop, release ]
+    branches: [ '**' ]
   workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
   REPO: https://github.com/${{ github.repository }}
-  IMG_NAME: ghcr.io/${{ github.repository_owner }}/rsu
+  IMG_NAME: ghcr.io/${{ github.repository }}::${GITHUB_REF#refs/heads/}
 
 jobs:
   build:
