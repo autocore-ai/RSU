@@ -10,7 +10,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   REPO: https://github.com/${{ github.repository }}
-  IMG_NAME: ghcr.io/${{ github.repository }}:${GITHUB_REF#refs/heads/}
+  IMG_NAME: ghcr.io/$(echo ${{ github.repository }}|tr [:upper:] [:lower:]):${GITHUB_REF#refs/heads/}
 
 jobs:
   test:
@@ -51,4 +51,4 @@ jobs:
             --platform linux/amd64,linux/arm64 \
             --build-arg REPO=${{ env.REPO }} \
             --tag ${{ env.IMG_NAME }} \
-            --file ./Dockerfile .
+            --file Dockerfile .
