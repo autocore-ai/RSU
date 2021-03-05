@@ -10,23 +10,23 @@ on:
 env:
   CARGO_TERM_COLOR: always
   REPO: https://github.com/${{ github.repository }}
-  IMG_NAME: ghcr.io/$(echo ${{ github.repository }}|tr [:upper:] [:lower:]):${GITHUB_REF#refs/heads/}
+  IMG_NAME: ghcr.io/${GITHUB_REPOSITORY,,}:${GITHUB_REF#refs/heads/}
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    -
-      uses: actions/checkout@v2
-    -
-      name: Build
-      run: cargo build --verbose
-    -
-      name: Run tests
-      run: cargo test --verbose
+#  test:
+#    runs-on: ubuntu-latest
+#    steps:
+#    -
+#      uses: actions/checkout@v2
+#    -
+#      name: Build
+#      run: cargo build --verbose
+#    -
+#      name: Run tests
+#      run: cargo test --verbose
 
   docker:
-    needs: [test]
+#    needs: [test]
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
