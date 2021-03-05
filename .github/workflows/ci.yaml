@@ -43,12 +43,15 @@ jobs:
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GHCR_TOKEN }}
     -
+      name: Docker build setup
+      id: setup
+      run: echo ::set-output name=tag::$(echo $((echo "ghcr.io/${{ github.repository }}:${GITHUB_REF#refs/heads/}" ) | tr '[:upper:]' '[:lower:]'))
+    -
       name: Build and push
-      run: |
-            DOCKER_IMAGE=$(echo $((echo "ghcr.io/${{ github.repository }}:${GITHUB_REF#refs/heads/}" ) | tr '[:upper:]' '[:lower:]'))
-            docker buildx build \
-            --output "type=image,push=true" \
-            --platform linux/amd64,linux/arm64 \
-            --build-arg REPO=${{ env.REPO }} \
-            --tag $DOCKER_IMAGE \
-            --file ./Dockerfile .
+      uses: docker/build-push-action@v2
+      with:
+        context: .
+        push: true
+        platforms: linux/amd64,linux/arm64
+        build-args: REPO=${{ env.REPO }}
+        tags: ${{ steps.setup.outputs.tag }}
