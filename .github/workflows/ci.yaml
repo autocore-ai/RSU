@@ -10,7 +10,7 @@ on:
 env:
   CARGO_TERM_COLOR: always
   REPO: https://github.com/${{ github.repository }}
-  IMG_NAME: ghcr.io/${{ github.repository.lowercase }}:${GITHUB_REF#refs/heads/}
+  IMG_NAME: ghcr.io/${{ github.repository }}:${GITHUB_REF#refs/heads/}
 
 jobs:
 #  test:
@@ -46,9 +46,10 @@ jobs:
 
     - name: Build and push
       run: |
+            echo ${{ env.REPO }}||tr [:upper:] [:lower:] >> $GITHUB_REPO
             docker buildx build \
             --output "type=image,push=true" \
             --platform linux/amd64,linux/arm64 \
-            --build-arg REPO=${{ env.REPO }} \
+            --build-arg REPO=$GITHUB_REPO \
             --tag ${{ env.IMG_NAME }} \
             --file Dockerfile .
