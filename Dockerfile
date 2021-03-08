@@ -6,9 +6,9 @@ COPY . .
 
 RUN cargo install --path .
 
-ARG REPO
-
 FROM rust:slim
+
+ARG REPO
 
 LABEL org.opencontainers.image.source ${REPO}
 
