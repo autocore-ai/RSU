@@ -18,6 +18,14 @@ jobs:
     -
       uses: actions/checkout@v2
     -
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ github.sha }}
+    -
       name: Build
       run: cargo build --verbose
     -
@@ -31,6 +39,12 @@ jobs:
     steps:
     -
       uses: actions/checkout@v2
+    -
+      uses: actions/cache@v2
+      with:
+        path: /tmp/.buildx-cache
+        key: docker-buildx-${{ github.sha }}
+        restore-keys: docker-buildx-
     -
       name: Set up QEMU
       uses: docker/setup-qemu-action@v1
@@ -57,3 +71,10 @@ jobs:
         platforms: linux/amd64,linux/arm64
         build-args: REPO=${{ env.REPO }}
         tags: ${{ steps.setup.outputs.tag }}
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache-new
+    -
+      name: Move cache
+      run:
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
