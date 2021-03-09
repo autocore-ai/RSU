@@ -14,4 +14,6 @@ LABEL org.opencontainers.image.source ${REPO}
 
 COPY --from=builder /usr/local/cargo/bin/rsu /usr/local/bin/rsu
 
+COPY --from=builder /usr/src/rsu/config.yaml /config.yaml
+
 CMD ["rsu"]
