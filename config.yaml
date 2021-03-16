@@ -1,0 +1,17 @@
+road_id: "1111111"  # 红绿灯路口的ID，和地图中的路口对应
+light_id_group: {   # 红绿灯ID，和地图中的路口灯对应
+  group1: ["light_1", "light_2"],
+  group2: ["light_3", "light_4"],
+}
+  
+master: "group1"  # 启动服务时的依照计算的灯组
+
+color: 1  #  1 红 2 绿 3 黄 0 灭灯
+
+duration:
+  green: 7
+  yellow: 3
+  red: 10
+  unknown: -1
+
+server_zenoh_url: 'http://192.168.10.161:8000/rsu/traffic_light/status/'
