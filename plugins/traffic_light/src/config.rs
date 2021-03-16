@@ -6,7 +6,7 @@ use yaml_rust::{YamlLoader};
 use crate::light;
 use light::{LightColor, LightStatus, LIGHTDURATION, LIGHTGROUP, LIGHTSTATUS};
 
-pub fn read_config(file_name: &str) -> (String, String) {
+pub fn read_config(file_name: &str) -> (String, String, String) {
     println!("begin to read_config");
     let config_str = fs::read_to_string(file_name).unwrap();
     let config_docs = YamlLoader::load_from_str(config_str.as_str()).unwrap();
@@ -14,6 +14,7 @@ pub fn read_config(file_name: &str) -> (String, String) {
     let light_group_cfg = &config["light_id_group"];
     let road_id =  String::from(config["road_id"].as_str().unwrap());
     let zenoh_url =  String::from(config["server_zenoh_url"].as_str().unwrap());
+    let port = String::from(config["port"].as_str().unwrap());
 
     // 读取灯的变化时间
     {
@@ -62,6 +63,6 @@ pub fn read_config(file_name: &str) -> (String, String) {
 
     }
     
-    println!("read config ok");
-    (road_id, zenoh_url)
+    println!("read traffic light config ok");
+    (road_id, zenoh_url, port)
 }

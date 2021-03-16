@@ -1,0 +1,4 @@
+port: "8080"
+cv_zenoh_url: 'http://192.168.10.161:8000/rsu/plugins/status/'
+road_id: '11111111'
+report_duration: 1

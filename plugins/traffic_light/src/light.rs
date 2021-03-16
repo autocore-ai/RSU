@@ -228,10 +228,13 @@ pub async fn light_loop(road_id: String, zenoh_url: String) {
 // 1s发送一次红绿灯结果
 async fn send(road_id:String, zenoh_url: String, lgt_info_vec:Vec<Light>) {
     let url = format!("{}{}", zenoh_url, road_id);
-    reqwest::Client::new()
+    let res = reqwest::Client::new()
     .put(&url)
     .json(&serde_json::json!(lgt_info_vec))
     .send()
     .await.unwrap();
     
+    if res.status() != 200 {
+        println!("send CV traffic light status failed, {:?}", res)
+    };
 }

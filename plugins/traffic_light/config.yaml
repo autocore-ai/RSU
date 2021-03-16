@@ -1,3 +1,4 @@
+port: '8081'
 road_id: "1111111"  # 红绿灯路口的ID，和地图中的路口对应
 light_id_group: {   # 红绿灯ID，和地图中的路口灯对应
   group1: ["light_1", "light_2"],
