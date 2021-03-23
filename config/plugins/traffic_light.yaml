@@ -15,4 +15,4 @@ duration:
   red: 10
   unknown: -1
 
-server_zenoh_url: 'http://192.168.10.161:8000/rsu/traffic_light/status/'
+cv_zenoh_url: 'http://192.168.10.161:8000/rsu/rsu_id/traffic_light/status/'

@@ -13,7 +13,7 @@ pub fn read_config(file_name: &str) -> (String, String, String) {
     let config = &config_docs[0];
     let light_group_cfg = &config["light_id_group"];
     let road_id =  String::from(config["road_id"].as_str().unwrap());
-    let zenoh_url =  String::from(config["server_zenoh_url"].as_str().unwrap());
+    let zenoh_url =  String::from(config["cv_zenoh_url"].as_str().unwrap());
     let port = String::from(config["port"].as_str().unwrap());
 
     // 读取灯的变化时间

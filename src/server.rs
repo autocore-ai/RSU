@@ -3,12 +3,12 @@
 /// 2. 添加或删除插件
 /// 3. 上报插件状态，1s 一次
 
+use std::env;
 use std::time::Duration;
 use std::sync::{Arc, Mutex};
 use tide::{Request, Response};
 use tide::prelude::*;
 use tide::utils::{After};
-use serde::{Deserialize, Serialize};
 use serde_json::{Result, Value};
 use percent_encoding::{percent_decode};
 use tokio::time::Instant;
@@ -19,33 +19,16 @@ use crate::plugin;
 use plugin::{PluginMgr};
 
 
-#[derive(Deserialize, Serialize, Debug)]
-struct RuleMessage {
-    light_id: String,
-    color: i32,
-    remain: i64,
-}
-
-#[derive(Deserialize, Serialize)]
-struct ResponseData {
-    status: i32,
-    message: String,
-}
-
-#[derive(Deserialize, Serialize)]
-struct PluginActive {
-    name: String,
-    active: bool,
-}
-
 lazy_static! {
     pub static ref PM: Arc<Mutex<Result<PluginMgr>>> = {
-        let pm = PluginMgr::new("./plugins.yaml").unwrap();
+        let current_path = env::current_exe().unwrap();
+        let path_list = current_path.to_str().unwrap().split("target").collect::<Vec<_>>();
+        let cfg_path = format!("{}/config/plugins.yaml", path_list[0]);
+        let pm = PluginMgr::new(&cfg_path).unwrap();
         Arc::new(Mutex::new(Ok(pm)))
     };
 }
 
-// http服务，处理修改配置的请求
 pub async fn server(port: String) -> tide::Result<()> {
 
     tide::log::start();
@@ -58,7 +41,6 @@ pub async fn server(port: String) -> tide::Result<()> {
         Ok(res)
     }));
 
-    // 插件状态
     app.at("/plugin").post(|mut req: Request<()>| async move {
         let plugin = req.body_string().await?;
         let plugin_decoded = percent_decode(plugin.as_bytes()).decode_utf8()?;
@@ -119,7 +101,7 @@ pub async fn server(port: String) -> tide::Result<()> {
         let plugin = req.body_string().await?;
         let plugin_decoded = percent_decode(plugin.as_bytes()).decode_utf8()?;
         let plugin_obj: Value = serde_json::from_str(&plugin_decoded)?;
-        // println!("{:?}", plugin_obj);
+
         if !plugin_obj.is_object() {
             return Ok(json!({ "status": -1, "message": "params are wrong, ex: {\"name\": \"traffic_light\", \"path\": \"/home/traffic_light\", \"active\": true}"}))
         }
@@ -154,8 +136,7 @@ pub async fn server(port: String) -> tide::Result<()> {
 
 
 // 1s发送一次红绿灯结果
-pub async fn send(cv_zenoh_url: String, road_id: String, duration: u64) {
-    let url = format!("{}{}", cv_zenoh_url, road_id);
+pub async fn send(cv_zenoh_url: String, duration: u64) {
 
     loop {
         let now = Instant::now();
@@ -165,7 +146,7 @@ pub async fn send(cv_zenoh_url: String, road_id: String, duration: u64) {
             let plugin_cfg = serde_json::to_string(&pm.plugin_cfg).unwrap();
 
             let res = reqwest::Client::new()
-                .put(&url)
+                .put(&cv_zenoh_url)
                 .json(&serde_json::json!(plugin_cfg))
                 .send()
                 .await.unwrap();
@@ -174,8 +155,6 @@ pub async fn send(cv_zenoh_url: String, road_id: String, duration: u64) {
                 println!("send CV plugins status failed, {:?}", res)
             };
         }
-        
-
         tokio::time::sleep_until(now.checked_add(Duration::from_secs(duration)).unwrap()).await;
     }
     

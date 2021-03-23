@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use async_std::task;
 use std::time;
+use std::env;
 use tokio;
 use tokio::runtime::Runtime;
 mod config;
@@ -9,12 +10,12 @@ use config::read_config;
 mod light;
 mod http_server;
 
-/// 1. 读配置文件
-/// 2. 启动修改红绿灯运行规则服务
-/// 3. 启动红绿灯运行
+
 async fn plugin_main() {
-    let f = String::from("./plugins/traffic_light/config.yaml");
-    let (road_id, zenoh_url, port) = read_config(&f);
+    let current_path = env::current_exe().unwrap();
+    let path_list = current_path.to_str().unwrap().split("target").collect::<Vec<_>>();
+    let cfg_path = format!("{}/config/plugins/traffic_light.yaml", path_list[0]);
+    let (road_id, zenoh_url, port) = read_config(&cfg_path);
     
     tokio::spawn(http_server::serve_http(port));
 

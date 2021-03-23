@@ -1,0 +1,3 @@
+vehicle_status_zenoh_path: '/demo/dds/rt/current_pose'
+cv_zenoh_url: 'http://192.168.10.161:8000/rsu/rsu_id/vehicle/status/'
+interval: 1000 

@@ -25,4 +25,5 @@ reqwest = { version = "0.11", features = ["json"] }
 
 members = [
   "plugins/traffic_light",
+  "plugins/vehicle_status",
 ]

@@ -1,0 +1,25 @@
+[package]
+name = "vehicle_status"
+version = "0.1.0"
+authors = ["rongjie.duan@autocore.ai <rongjie.duan@autocore.ai>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+async-std = "1.9.0"
+serde = { version = "1.0", features = ["derive"] }
+zenoh =  { git = "https://github.com/eclipse-zenoh/zenoh"}
+futures = "0.3.5"
+env_logger = "0.8.1"
+yaml-rust = "0.4"
+tokio = { version = "1.*.*", features = ["full"] }
+lazy_static="1.4.0"
+serde_json = "1.0.*"
+serde_derive = "1.0.*"
+reqwest = { version = "0.11", features = ["json"] }
+bincode = "1.3.2"
+
+[lib]
+crate-type = ["cdylib"]
+name = "vehicle_status"

@@ -1,5 +1,0 @@
----
-plugins:
-  traffic_light:
-    path: "./target/debug/libtraffic_light.so"
-    active: true

@@ -6,7 +6,7 @@
 
 1. 远程使能 -- CloudViewer可以通过HTTP请求，控制本平台的插件状态
 2. 配置更新 -- CloudViewer请求后，更新配置中插件状态
-3. 状态上报 -- 上报插件状态给CloudViewer
+3. 状态上报 -- 上报插件状态给CenterDB
    
 ### 插件管理
 
@@ -14,6 +14,8 @@
 2. 插件使能 -- 拥有启停某个插件的功能
  
 ## API
+
+### 插件使能
 
 URL： ip:port/plugin
    
@@ -27,7 +29,7 @@ URL： ip:port/plugin
 |  字段   | 是否必须  | 类型  | 描述  |
 |  ----  | ----  | ----  | ----  |
 | name        | 是| string | 插件名字 |
-| active      | 是|  i32    | 插件状态，1开 0 关|
+| active      | 是|  i32    | 插件状态，true开 false关|
 
 
 响应消息：
@@ -36,6 +38,7 @@ URL： ip:port/plugin
 | status  | i32     | 插件装填，1 成功，-1 失败 |
 | message | string  | 信息描述|
 
+### 添加插件
 
 URL： ip:port/plugin/add
    
@@ -58,6 +61,7 @@ URL： ip:port/plugin/add
 | status  | i32     | 插件装填，1 成功，-1 失败 |
 | message | string  | 信息描述|
 
+### 删除插件
 
 URL： ip:port/plugin/remove
    

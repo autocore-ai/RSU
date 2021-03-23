@@ -1,0 +1,5 @@
+---
+plugins:
+  traffic_light:
+    path: "libtraffic_light.so"
+    active: true
