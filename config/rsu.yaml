@@ -1,3 +1,4 @@
-port: "8080"
-cv_zenoh_url: 'http://192.168.10.161:8000/rsu/rsu_id/plugins/status/'
+---
+port: "61111"
+center_db_url: 'http://192.168.10.161:8000/rsu/rsu_id/plugins/status/'
 report_duration: 1

@@ -1,5 +1,8 @@
 ---
 plugins:
+  vehicle_status:
+    path: libvehicle_status.so
+    active: true
   traffic_light:
-    path: "libtraffic_light.so"
+    path: libtraffic_light.so
     active: true

@@ -3,6 +3,7 @@ extern crate lazy_static;
 use lazy_static::lazy_static;
 use std::sync::{Mutex};
 use std::collections::HashMap;
+use std::error::Error;
 use tokio::time::Instant;
 use std::convert::TryInto;
 use zenoh::*;
@@ -43,7 +44,6 @@ pub struct LightStatus {
 impl LightStatus {
     // 转灯，每个tick（1秒）调用一次，如果倒计时结束就转灯，并返回true；否则返回false
     pub fn tick(&mut self, light_duration: &LightDuration) -> bool {
-        // println!("{:?}",self.counter);
         self.counter -= 1;
         if self.counter == 0 {
             match self.color {
@@ -95,49 +95,49 @@ lazy_static! {
 }
 
 // 根据灯色获取时长
-pub fn get_duration(color: &LightColor) -> i64{
+pub fn get_duration(color: &LightColor) -> Result<i64, Box<dyn Error>>{
     {
-        let lcfg = LIGHTDURATION.lock().unwrap();
+        let lcfg = LIGHTDURATION.lock()?;
         match color {
-            &LightColor::RED => lcfg.red,
-            &LightColor::GREEN => lcfg.green,
-            &LightColor::YELLOW => lcfg.yellow,
-            &LightColor::UNKNOWN => lcfg.unknown,
+            &LightColor::RED => Ok(lcfg.red),
+            &LightColor::GREEN => Ok(lcfg.green),
+            &LightColor::YELLOW => Ok(lcfg.yellow),
+            &LightColor::UNKNOWN => Ok(lcfg.unknown),
         }
     }
     
 }
 
 // 获取相反的灯色
-pub fn inverse_color(color: &LightColor, counter: i64) -> LightColor {
+pub fn inverse_color(color: &LightColor, counter: i64) -> Result<LightColor, Box<dyn Error>> {
     let current_color = color.clone(); 
-    let lcfg = LIGHTDURATION.lock().unwrap();
+    let lcfg = LIGHTDURATION.lock()?;
     match current_color {
         LightColor::RED => (|| {
             if counter > lcfg.yellow {
-                LightColor::GREEN
+                Ok(LightColor::GREEN)
             } else {
-                LightColor::YELLOW
+                Ok(LightColor::YELLOW)
             }
         })(),
         LightColor::GREEN => (|| {
-            LightColor::RED
+            Ok(LightColor::RED)
            
         })(),
         LightColor::YELLOW => (|| {
-            LightColor::RED
+            Ok(LightColor::RED)
            
         })(),
         LightColor::UNKNOWN =>  (|| {
-            LightColor::UNKNOWN
+            Ok(LightColor::UNKNOWN)
            
         })(),
     }
 }
 // 根据配置，给LIGHTDURATION赋值
-pub fn init_light_duration(init_color: i32, counter: i64) {
+pub fn init_light_duration(init_color: i32, counter: i64) -> Result<(), Box<dyn Error>> {
     let color = init_color.clone();
-    let mut lcfg = LIGHTDURATION.lock().unwrap();
+    let mut lcfg = LIGHTDURATION.lock()?;
     // 1 红 2 绿 3 黄 0 灭灯
     match color {
         2 => lcfg.green = counter,
@@ -146,20 +146,20 @@ pub fn init_light_duration(init_color: i32, counter: i64) {
         0 => lcfg.unknown = counter,
         _ => ()
     };
+    Ok(())
 }
 
 /// 根据配置计算所有灯的初始状态status
 ///1. 根据lgt_id找到灯所属于的组
 ///2. 更改改组的灯色
 /// 
-pub fn init_lgt_status(lgt_id: &str, init_color: LightColor, remain: i64){
+pub fn init_lgt_status(lgt_id: &str, init_color: LightColor, remain: i64)-> Result<(), Box<dyn Error>> {
     {
-        let mut lgt_status = LIGHTSTATUS.lock().unwrap();
-        let mut light_group = LIGHTGROUP.lock().unwrap();
+        let mut lgt_status = LIGHTSTATUS.lock()?;
+        let mut light_group = LIGHTGROUP.lock()?;
         for (group_name, light_id_list) in light_group.iter_mut() {
             for light_id in light_id_list {
                 if lgt_id == light_id {
-                    // lgt_status.get(&group_name);
                     let mut r_lgt_status = lgt_status.get_mut(&group_name[..]).unwrap();
                     r_lgt_status.color = init_color;
                     r_lgt_status.counter = remain;
@@ -168,15 +168,16 @@ pub fn init_lgt_status(lgt_id: &str, init_color: LightColor, remain: i64){
             }
         }
     }
+    Ok(())
 }
 
 
 // 循环灯状态
-pub async fn light_loop(road_id: String, zenoh_url: String) {
+pub async fn light_loop(road_id: String, center_db_url: String) -> Result<(), Box<dyn Error>> {
     let config = Properties::default();
-    let zenoh = Zenoh::new(config.into()).await.unwrap();
+    let zenoh = Zenoh::new(config.into()).await?;
 
-    let workspace = zenoh.workspace(None).await.unwrap();
+    let workspace = zenoh.workspace(None).await?;
     let light_path = format!("/light/detail/{}", road_id);
     
     //每秒tick
@@ -186,15 +187,15 @@ pub async fn light_loop(road_id: String, zenoh_url: String) {
         let mut value_new = String::from("{");
 
         {
-            let mut lgt_status_hash = LIGHTSTATUS.lock().unwrap();
-            let mut light_group = LIGHTGROUP.lock().unwrap();
-            let lgt_duration = LIGHTDURATION.lock().unwrap();
+            let mut lgt_status_hash = LIGHTSTATUS.lock()?;
+            let mut light_group = LIGHTGROUP.lock()?;
+            let lgt_duration = LIGHTDURATION.lock()?;
 
             for (group_name, lgt_id_vec) in light_group.iter_mut() {
                 value_new = format!(r#"{}"{}":["#, value_new, group_name);
                 // 1. 取出group中的值，为每个灯的剩余时间减一
                 // 获取灯的状态
-                let lgt_status = lgt_status_hash.get_mut(group_name).unwrap();
+                let lgt_status = lgt_status_hash.get_mut(group_name).ok_or(format!("get light status hash obj failed"))?;
                 lgt_status.tick(&lgt_duration);
                 let color = lgt_status.color;
                 let remain = lgt_status.counter;
@@ -216,25 +217,22 @@ pub async fn light_loop(road_id: String, zenoh_url: String) {
         let value_len = value_new.len()-1;
         value_new.remove(value_len);
         value_new += &String::from("}");
-        workspace.put(&light_path.clone().try_into().unwrap(), zenoh::Value::Json(value_new)).await.unwrap();
+        workspace.put(&light_path.clone().try_into().unwrap(), zenoh::Value::Json(value_new)).await?;
 
         // 发送给CV红绿灯数据
-        send(road_id.clone(), zenoh_url.clone(), light_vec).await;
+        send(road_id.clone(), center_db_url.clone(), light_vec).await?;
 
-        tokio::time::sleep_until(now.checked_add(Duration::from_secs(1)).unwrap()).await;
+        tokio::time::sleep_until(now.checked_add(Duration::from_secs(1)).ok_or(format!("light loop check time return None"))?).await;
     }
 }
 
 // 1s发送一次红绿灯结果
-async fn send(road_id:String, zenoh_url: String, lgt_info_vec:Vec<Light>) {
-    let url = format!("{}{}", zenoh_url, road_id);
-    let res = reqwest::Client::new()
+async fn send(road_id:String, center_db_url: String, lgt_info_vec:Vec<Light>) -> Result<(), Box<dyn Error>> {
+    let url = format!("{}{}", center_db_url, road_id);
+    reqwest::Client::new()
     .put(&url)
     .json(&serde_json::json!(lgt_info_vec))
     .send()
-    .await.unwrap();
-    
-    if res.status() != 200 {
-        println!("send CV traffic light status failed, {:?}", res)
-    };
+    .await?;
+    Ok(())
 }

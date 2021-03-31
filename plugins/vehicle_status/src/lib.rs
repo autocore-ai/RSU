@@ -1,17 +1,18 @@
 use futures::prelude::*;
-use futures::select;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::fs;
-use reqwest;
-use std::convert::{TryInto};
-use serde::{Deserialize, Serialize};
+use std::error::Error;
+use std::path::Path;
 use std::time::Duration;
-use zenoh::*;
-use yaml_rust::{YamlLoader};
+use reqwest;
+use serde::{Deserialize, Serialize};
+use zenoh::net::*;
+use zenoh::Properties;
+use yaml_rust::{YamlLoader, YamlEmitter};
 use async_std::task;
 use std::time;
-use std::env;
+use log::{info, error, debug};
 use tokio;
 use tokio::runtime::Runtime;
 use tokio::time::Instant;
@@ -46,9 +47,8 @@ struct CurrentPose {
 
 
 impl CurrentPose {
-    pub fn new(buf_vec: &Vec<u8>) -> CurrentPose {
-        let frame_id_len: i32 = bincode::deserialize(&buf_vec[12..16]).unwrap();
-        println!("frame_id_len: {:?}", frame_id_len);
+    pub fn new(buf_vec: &Vec<u8>) -> Result<CurrentPose, Box<dyn Error>> {
+        let frame_id_len: i32 = bincode::deserialize(&buf_vec[12..16])?;
         let frame_str_len_min = frame_id_len + 4;
         let multiple:usize = {if frame_str_len_min % 8 == 0 {frame_str_len_min/ 8} else {frame_str_len_min/ 8 +1}} as usize;
 
@@ -61,19 +61,21 @@ impl CurrentPose {
         let ori_z_end:usize = ori_y_end+8;
         let ori_w_end:usize = ori_z_end+8;
      
-        CurrentPose {
-                    position: 
-                        Position{
-                            x: bincode::deserialize(&buf_vec[position_start..position_x_end]).unwrap(), 
-                            y: bincode::deserialize(&buf_vec[position_x_end..position_y_end]).unwrap(), 
-                            z: bincode::deserialize(&buf_vec[position_y_end..position_z_end]).unwrap(),
-                        }, 
-                    orientation:Orientation{
-                        x: bincode::deserialize(&buf_vec[position_z_end..ori_x_end]).unwrap(), 
-                        y: bincode::deserialize(&buf_vec[ori_x_end..ori_y_end]).unwrap(), 
-                        z: bincode::deserialize(&buf_vec[ori_y_end..ori_z_end]).unwrap(), 
-                        w: bincode::deserialize(&buf_vec[ori_z_end..ori_w_end]).unwrap()}
-                }
+        Ok(
+            CurrentPose {
+                position: 
+                    Position{
+                        x: bincode::deserialize(&buf_vec[position_start..position_x_end])?, 
+                        y: bincode::deserialize(&buf_vec[position_x_end..position_y_end])?, 
+                        z: bincode::deserialize(&buf_vec[position_y_end..position_z_end])?,
+                    }, 
+                orientation:Orientation{
+                    x: bincode::deserialize(&buf_vec[position_z_end..ori_x_end])?, 
+                    y: bincode::deserialize(&buf_vec[ori_x_end..ori_y_end])?, 
+                    z: bincode::deserialize(&buf_vec[ori_y_end..ori_z_end])?, 
+                    w: bincode::deserialize(&buf_vec[ori_z_end..ori_w_end])?}
+            }
+        )
     }
 
 }
@@ -85,107 +87,219 @@ lazy_static! {
 }
 
 
-fn read_config(file_name: &str) -> (String, String, u64) {
-    println!("begin to read_config");
-    let config_str = fs::read_to_string(file_name).unwrap();
-    let config_docs = YamlLoader::load_from_str(config_str.as_str()).unwrap();
+fn read_config(file_name: &str) -> Result<(String, String, u64), Box<dyn Error>> {
+    if !Path::new(file_name).exists() {
+        let mut dir_path_vec:Vec<&str> = file_name.split('/').collect();
+        dir_path_vec.pop();
+        fs::create_dir_all(dir_path_vec.join("/"))?;
+        fs::File::create(file_name)?;
+        generate_cfg(file_name)?;
+    }
+    let config_str = fs::read_to_string(file_name)?;
+    let config_docs = YamlLoader::load_from_str(config_str.as_str())?;
     let config = &config_docs[0];
-    let vh_zenoh_path =  String::from(config["vehicle_status_zenoh_path"].as_str().unwrap());
-    let cv_zenoh_url =  String::from(config["cv_zenoh_url"].as_str().unwrap());
-    let interval = config["interval"].as_i64().unwrap();
-    (vh_zenoh_path, cv_zenoh_url, interval as u64)
+    let vh_zenoh_path =  String::from(config["vehicle_status_zenoh_path"].as_str()
+    .ok_or("get vehicle_status_zenoh_path from vehicle status config failed".to_owned())?);
+    let center_db_url =  String::from(config["center_db_url"].as_str()
+    .ok_or("get center_db_url from vehicle status config failed".to_owned())?);
+    let interval = config["interval"].as_i64()
+    .ok_or("get interval from vehicle status config failed".to_owned())?;
+    Ok((vh_zenoh_path, center_db_url, interval as u64))
 }
 
-async fn send(cv_url: String, interval: u64){
+
+fn generate_cfg(cfg_path: &str) -> Result<(), Box<dyn Error>>{
+    let rsu_default = r#"---
+    vehicle_status_zenoh_path: '/demo/dds/rt/current_pose'
+    center_db_url: 'http://ip:port/rsu/rsu_id/vehicle/status/'
+    interval: 1000"#;
+    let docs = YamlLoader::load_from_str(&rsu_default)?;
+        let doc = &docs[0];
+        let mut writer = String::new();
+        let mut emitter = YamlEmitter::new(&mut writer);
+        emitter.dump(doc)?;
+        fs::write(&cfg_path, writer)?;
+        Ok(())
+}
+
+async fn send(center_db_url: String, interval: u64) -> Result<(), Box<dyn Error>>{
     loop {
         let now = Instant::now();
         let mut vh_status_vec: Vec<CurrentPose> = vec![];
 
         {
-            let mut vh_status_map = VEHICLESTATUSMAP.lock().unwrap();
+            let mut vh_status_map = VEHICLESTATUSMAP.lock()?;
             for (_, vh_status) in vh_status_map.iter_mut() {
                 vh_status_vec.push(vh_status.clone());
             }
             vh_status_map.clear();
         }
 
-            let vh_str = serde_json::to_string(&vh_status_vec).unwrap();
-
-            let res = reqwest::Client::new()
-                .put(&cv_url)
-                .json(&serde_json::json!(vh_str))
-                .send()
-                .await.unwrap();
-
-
-            if res.status() != 200 {
-                println!("send CV vehicle status failed, {:?}", res)
-            };
+        reqwest::Client::new()
+            .put(&center_db_url)
+            .json(&serde_json::json!(vh_status_vec))
+            .send()
+            .await?;
         
-        tokio::time::sleep_until(now.checked_add(Duration::from_millis(interval)).unwrap()).await;
+        tokio::time::sleep_until(now.checked_add(Duration::from_millis(interval))
+        .ok_or(format!("vehicle status loop check time return None"))?).await;
     }
 }
 
-async fn receive_vh_status(vh_path: String) {
-    // env_logger::init();
-    let mut config = Properties::default();
-    config.insert(String::from("mode"), String::from("client"));
-    let zenoh = Zenoh::new(config.into()).await.unwrap();
+async fn receive_vh_status(vh_path: String, error_flag: Arc<Mutex<bool>>) -> Result<(), String>  {
+    let config = Properties::default();
+    // config.insert(String::from("mode"), String::from("client"));
+    debug!("Opening session...");
+    let session = match open(config.into()).await{
+        Ok(se) => se,
+        Err(e) => {
+            error!("get zenoh net session error: {:?}", e);
 
-    println!("New workspace...");
-    let workspace = zenoh.workspace(None).await.unwrap();
+            let mut error_flag = error_flag.lock().map_err(|e| {
+                error!("lock vehicle status error_flag failed: {:?}", e);
+                format!("lock vehicle status error_flag failed: {:?}", e)
+            })?;
 
-    println!("Subscribe to {} ...\n", vh_path);
-    let mut change_stream = workspace
-        .subscribe(&vh_path.try_into().unwrap())
-        .await
-        .unwrap();
-    let vh_id: String = String::from("hello");
-    loop {
-        select!(
-            change = change_stream.next().fuse() => {
-                let change = change.unwrap();
-               
-                {
-                    let vh_status: CurrentPose = serde_json::from_str(&change.value.unwrap().encode_to_string().2).unwrap();
-                    // let vh_id = &vh_status.id;
-                    let mut vh_status_map = VEHICLESTATUSMAP.lock().unwrap();
-                    vh_status_map.insert(String::from(&vh_id), vh_status);
+            *error_flag = true;
+            return Ok(())
+        }
+    };
+
+    debug!("Declaring Subscriber on {}", vh_path);
+
+    let sub_info = SubInfo {
+        reliability: Reliability::Reliable,
+        mode: SubMode::Push,
+        period: None,
+    };
+
+    let mut subscriber = match session
+        .declare_subscriber(&vh_path.into(), &sub_info)
+        .await {
+            Ok(sub) => sub,
+            Err(e) => {
+                error!("declare_subscriber error: {:?}", e);
+
+                let mut error_flag = error_flag.lock().map_err(|e| {
+                    error!("lock vehicle status error_flag failed: {:?}", e);
+                    format!("lock vehicle status error_flag failed: {:?}", e)
+                })?;
+    
+                *error_flag = true;
+                return Ok(())
+            },
+        };
+
+    let stream = subscriber.stream();
+    let id:String = String::from("car_id");
+    while let Some(d) = stream.next().await{
+        let bs = d.payload.to_vec();
+        {
+            let vh_status: CurrentPose = match CurrentPose::new(&bs) {
+                Ok(cp) => cp,
+                Err(e) => {
+                    error!("new CurrentPose failed: {:?}", e);
+                    let mut error_flag = error_flag.lock().map_err(|e| {
+                        error!("lock error_flag failed: {:?}", e);
+                        format!("lock error_flag failed: {:?}", e)
+                    })?;
+        
+                    *error_flag = true;
+                    return Ok(())
                 }
-            }
+            };
 
-        );
+            // let vh_id = &vh_status.id;
+            let mut vh_status_map = match VEHICLESTATUSMAP.lock(){
+                Ok(map) => map,
+                Err(e) => {
+                    error!("lock vehicle status map failed: {:?}", e);
+                    let mut error_flag = error_flag.lock().map_err(|e| {
+                        error!("lock error_flag failed: {:?}", e);
+                        format!("lock error_flag failed: {:?}", e)
+                    })?;
+        
+                    *error_flag = true;
+                    return Ok(())
+                }
+            };
+            vh_status_map.insert(String::from(&id), vh_status);
+        }
     }
-
+    Ok(())
 }
 
 
-async fn plugin_main() {
-    let current_path = env::current_exe().unwrap();
-    let path_list = current_path.to_str().unwrap().split("target").collect::<Vec<_>>();
-    let cfg_path = format!("{}/config/plugins/vehicle_status.yaml", path_list[0]);
-    let (vh_zenoh_path, cv_zenoh_url, interval) = read_config(&cfg_path);
+async fn plugin_main(error_flag: Arc<Mutex<bool>>) -> Result<(), String>{
+    let cfg_path = "./config/plugins/vehicle_status.yaml";
+    let (vh_zenoh_path, center_db_url, interval) = match read_config(&cfg_path){
+        Ok((vh_zenoh_path, center_db_url, interval)) => (vh_zenoh_path, center_db_url, interval),
+        Err(e) => {
+            {
+                let mut error_flag = error_flag.lock().map_err(|e| {
+                    error!("lock vehicle status error_flag failed: {:?}", e);
+                    format!("lock vehicle status error_flag failed: {:?}", e)
+                })?;
+                *error_flag = true;
+            }
+            error!("read vehicle status config failed: {:?}", e.to_string());
+            return Err(format!("read vehicle status config failed: {:?}", e.to_string()))
+        },
+    };
 
-    tokio::spawn(receive_vh_status(vh_zenoh_path));
+    let error_flag_clone = Arc::clone(&error_flag);
+    tokio::spawn(receive_vh_status(vh_zenoh_path, error_flag_clone));
     
-    send(cv_zenoh_url, interval).await;
-    
+    match send(center_db_url, interval).await{
+        Ok(_) => {
+            info!("vehicle status plugin send server start successful");
+        },
+        Err(e) => {
+            error!("vehicle status plugin send server failed: {:?}", e);
+            {
+                let mut error_flag = error_flag.lock().map_err(|e| {
+                    error!("lock vehicle status error_flag failed: {:?}", e);
+                    format!("lock vehicle status error_flag failed: {:?}", e)
+                })?;
+                *error_flag = true;
+            }
+        }
+
+    };
+    Ok(())
 }
 
-async fn async_run(running_flag: Arc<Mutex<bool>>) {
-    tokio::spawn(plugin_main());
+async fn async_run(running_flag: Arc<Mutex<bool>>, error_flag: Arc<Mutex<bool>>) -> i32 {
+    tokio::spawn(plugin_main(error_flag));
+
     loop {
         task::sleep(time::Duration::from_secs(1)).await;
-        let the_flag = running_flag.lock().unwrap();
+        let the_flag = match running_flag.lock(){
+            Ok(f) => f,
+            Err(e) => {
+                debug!("lock vehicle status running_flag failed: {:?}", e);
+                return -1
+            },
+        };
+
         if !*the_flag {
-            break;
+            info!("plugin vehicle status stopped");
+            return 0
         }
     }
 }
 
 #[no_mangle]
-pub extern "C" fn run(running_flag: Arc<Mutex<bool>>) -> i32 {
-    let rt = Runtime::new().unwrap();
-    rt.block_on(async_run(running_flag));
-    0
+pub extern "C" fn run(running_flag: Arc<Mutex<bool>>, error_flag: Arc<Mutex<bool>>) -> i32 {
+    env_logger::init();
+
+    let rt = match Runtime::new() {
+        Ok(r) => r,
+        Err(e) => {
+            debug!("vehicle status new runtime failed: {:?}", e);
+            return -1
+        },
+    };
+
+    rt.block_on(async_run(running_flag, error_flag))
 }

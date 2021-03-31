@@ -20,6 +20,8 @@ url = { version = "2", features = ["serde"] }
 percent-encoding = "2.1.0"
 zenoh =  { git = "https://github.com/eclipse-zenoh/zenoh"}
 reqwest = { version = "0.11", features = ["json"] }
+log = "0.4.14"
+env_logger = "0.8.2"
 
 [workspace]
 
