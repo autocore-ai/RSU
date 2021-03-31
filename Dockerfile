@@ -1,10 +1,12 @@
 FROM rust:latest as builder
 
-WORKDIR /usr/src/rsu
+WORKDIR /root/rsu
 
 COPY . .
 
-RUN cargo install --path .
+ARG BUILD_ARGS
+
+RUN cargo build --all ${BUILD_ARGS}
 
 FROM rust:slim
 
@@ -12,8 +14,10 @@ ARG REPO
 
 LABEL org.opencontainers.image.source ${REPO}
 
-COPY --from=builder /usr/local/cargo/bin/rsu /usr/local/bin/rsu
+COPY --from=builder /root/rsu/target/**/rsu /usr/local/bin/
 
-COPY --from=builder /usr/src/rsu/config.yaml /config.yaml
+COPY --from=builder /root/rsu/target/**/*.so /usr/local/bin/
+
+COPY --from=builder /root/rsu/config /usr/local/bin/config
 
 CMD ["rsu"]
