@@ -4,6 +4,7 @@
 use std::error::Error;
 use log::{debug};
 use std::fs;
+use std::env;
 use std::path::Path;
 extern crate yaml_rust;
 use yaml_rust::{YamlLoader, YamlEmitter};
@@ -54,7 +55,9 @@ pub fn read_config(file_name: &str) -> Result<(String, String, String), Box<dyn 
     let config = &config_docs[0];
     let light_group_cfg = &config["light_id_group"];
     let road_id =  String::from(config["road_id"].as_str().ok_or("get road_id from traffic light config failed".to_owned())?);
-    let center_db_url =  String::from(config["center_db_url"].as_str().ok_or("get center_db_url from raffic light config tfailed".to_owned())?);
+    let ip = env::var("HOST_IP").unwrap_or("127.0.0.1".to_string());
+    let center_db_url =  String::from(config["center_db_url"].as_str().ok_or("get center_db_url from raffic light config tfailed".to_owned())?)
+    .replace("127.0.0.1", &ip);
     let port = String::from(config["port"].as_str().ok_or("get port from traffic light config tfailed".to_owned())?);
 
     // 读取灯的变化时间

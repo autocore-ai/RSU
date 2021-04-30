@@ -1,0 +1,8 @@
+*
+!config
+!plugins
+!src
+!Cargo.lock
+!Cargo.toml
+!Dockerfile
+!rust-toolchain
