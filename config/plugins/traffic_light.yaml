@@ -15,4 +15,4 @@ duration:
   yellow: 3
   red: 10
   unknown: -1
-center_db_url: "http://192.168.10.161:8000/rsu/rsu_id/traffic_light/status/"
+center_db_url: "http://127.0.0.1:8000/rsu/rsu_id/traffic_light/status/"

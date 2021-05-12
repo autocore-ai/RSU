@@ -1,6 +1,7 @@
 use futures::prelude::*;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
+use std::env;
 use std::fs;
 use std::error::Error;
 use std::path::Path;
@@ -100,8 +101,10 @@ fn read_config(file_name: &str) -> Result<(String, String, u64), Box<dyn Error>>
     let config = &config_docs[0];
     let vh_zenoh_path =  String::from(config["vehicle_status_zenoh_path"].as_str()
     .ok_or("get vehicle_status_zenoh_path from vehicle status config failed".to_owned())?);
+    let ip = env::var("HOST_IP").unwrap_or("127.0.0.1".to_string());
     let center_db_url =  String::from(config["center_db_url"].as_str()
-    .ok_or("get center_db_url from vehicle status config failed".to_owned())?);
+    .ok_or("get center_db_url from vehicle status config failed".to_owned())?)
+    .replace("127.0.0.1", &ip);
     let interval = config["interval"].as_i64()
     .ok_or("get interval from vehicle status config failed".to_owned())?;
     Ok((vh_zenoh_path, center_db_url, interval as u64))

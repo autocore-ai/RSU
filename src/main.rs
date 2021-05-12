@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::env;
 use std::fs;
 use std::path::Path;
 use log::{info, error};
@@ -21,7 +22,9 @@ fn read_rsu_cfg(path: &str) -> Result<(String, String, u64), Box<dyn Error>>{
     let config_docs = YamlLoader::load_from_str(config_str.as_str())?;
     let config = &config_docs[0];
     let port = String::from(config["port"].as_str().ok_or("get port from cfg failed".to_owned())?);
-    let center_db_url = String::from(config["center_db_url"].as_str().ok_or("get center_db_url from cfg failed".to_owned())?);
+    let ip = env::var("HOST_IP").unwrap_or("127.0.0.1".to_string());
+    let center_db_url = String::from(config["center_db_url"].as_str().ok_or("get center_db_url from cfg failed".to_owned())?)
+    .replace("127.0.0.1", &ip);
     let send_duration: u64 = config["report_duration"].as_i64().ok_or("get center_db_url from cfg failed".to_owned())? as u64;
 
     Ok((port, center_db_url, send_duration))
