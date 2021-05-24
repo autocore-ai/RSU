@@ -264,7 +264,7 @@ impl PluginMgr {
                 let plugin = self.plugins.get_mut(name).ok_or(format!("get plugin[{}] failed from plugins", name))?;
                 match plugin.check() {
                     Ok(_) => {
-                        debug!("plugin {} running ok", name);
+                        debug!("plugin {} is running", name);
                     },
                     Err(_) => {
                         error!("plugin running error, now stop plugin: {}", name);

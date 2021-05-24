@@ -8,6 +8,7 @@ use tokio::time::Instant;
 use std::convert::TryInto;
 use zenoh::*;
 use std::time::Duration;
+use log::{error};
 
 #[derive(Deserialize, Serialize, Debug, Clone, Copy)]
 pub enum LightColor {
@@ -229,10 +230,18 @@ pub async fn light_loop(road_id: String, center_db_url: String) -> Result<(), Bo
 // 1s发送一次红绿灯结果
 async fn send(road_id:String, center_db_url: String, lgt_info_vec:Vec<Light>) -> Result<(), Box<dyn Error>> {
     let url = format!("{}{}", center_db_url, road_id);
-    reqwest::Client::new()
-    .put(&url)
-    .json(&serde_json::json!(lgt_info_vec))
-    .send()
-    .await?;
+    match reqwest::Client::new()
+        .put(&url)
+        .json(&serde_json::json!(lgt_info_vec))
+        .send()
+        .await {
+            Ok(res) => {
+                if res.status() != 200 {
+                    error!("send traffic light status to center db failed, url:{}, reason {:?}", center_db_url, res);
+                }},
+            Err(e) => {
+                error!("send traffic light status to center db failed, url:{}, reason {:?}", center_db_url, e);
+            }
+        };
     Ok(())
 }
