@@ -138,11 +138,21 @@ async fn send(center_db_url: String, interval: u64) -> Result<(), Box<dyn Error>
             vh_status_map.clear();
         }
 
-        reqwest::Client::new()
+        match reqwest::Client::new()
             .put(&center_db_url)
             .json(&serde_json::json!(vh_status_vec))
             .send()
-            .await?;
+            .await {
+                Ok(res) => {
+                    if res.status() != 200 {
+                        error!("send vehicle status to center db failed, url:{}, reason {:?}", center_db_url, res);
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                        continue;
+                    }},
+                Err(e) => {
+                    error!("send vehicle status to center db failed, url:{}, reason {:?}", center_db_url, e);
+                }
+            }
         
         tokio::time::sleep_until(now.checked_add(Duration::from_millis(interval))
         .ok_or(format!("vehicle status loop check time return None"))?).await;
@@ -212,6 +222,7 @@ async fn receive_vh_status(vh_path: String, error_flag: Arc<Mutex<bool>>) -> Res
                 }
             };
 
+            // debug!("receive vehicle state: {:?}", vh_status);
             // let vh_id = &vh_status.id;
             let mut vh_status_map = match VEHICLESTATUSMAP.lock(){
                 Ok(map) => map,
@@ -255,10 +266,11 @@ async fn plugin_main(error_flag: Arc<Mutex<bool>>) -> Result<(), String>{
     
     match send(center_db_url, interval).await{
         Ok(_) => {
-            info!("vehicle status plugin send server start successful");
+            info!("vehicle status plugin server start successful");
         },
         Err(e) => {
-            error!("vehicle status plugin send server failed: {:?}", e);
+            error!("vehicle status plugin server failed: {:?}", e);
+            info!("sleep 2s ...");
             {
                 let mut error_flag = error_flag.lock().map_err(|e| {
                     error!("lock vehicle status error_flag failed: {:?}", e);
