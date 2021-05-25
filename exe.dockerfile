@@ -18,6 +18,4 @@ COPY --from=builder /root/rsu/target/**/rsu /usr/local/bin/
 
 COPY --from=builder /root/rsu/target/**/*.so /usr/lib/
 
-COPY --from=builder /root/rsu/config /config
-
 CMD ["rsu"]
