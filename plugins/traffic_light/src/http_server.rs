@@ -51,11 +51,11 @@ pub async fn serve_http(port: String, error_flag: Arc<Mutex<bool>>) -> Result<()
             None => { return Ok(json!({ "status": -1, "message": format!("get param error, color is None")}))}
         };
 
-        let lgt_id = match req_mess_obj["lgt_id"].as_str() {
+        let lgt_id = match req_mess_obj["light_id"].as_str() {
             Some(v) => v,
-            None => { return Ok(json!({ "status": -1, "message": format!("get param error, lgt_id is None")}))}
+            None => { return Ok(json!({ "status": -1, "message": format!("get param error, light_id is None")}))}
         };
-        debug!("rule cheange, message: light_id: {}, color: {}, remain: {}", lgt_id, color, remain);
+        info!("rule cheange, message: light_id: {}, color: {}, remain: {}", lgt_id, color, remain);
 
         let init_color = match color {
             1 => LightColor::RED,
