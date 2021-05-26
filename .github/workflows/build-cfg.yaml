@@ -13,7 +13,7 @@
 #    to endorse or promote products derived from this software without specific prior written
 #    permission.
 
-name: Build
+name: Build_cfg
 
 on: [push, workflow_dispatch]
 env:
@@ -23,15 +23,15 @@ jobs:
   build:
     runs-on: self-hosted
     env:
-      IMG_NAME: autocore/rsu
+      IMG_NAME: autocore/rsu-cfg
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Build and push
         run: |
           docker buildx build \
-          --output "type=image,push=true" \
+          --output type=registry \
           --platform linux/amd64,linux/arm64 \
           --build-arg REPO=${{ env.REPO }} \
           --tag ${{ env.IMG_NAME }}:$(echo ${GITHUB_REF#refs/heads/} | sed 's/\//_/g') \
-          --file Dockerfile .
+          --file cfg.dockerfile .
