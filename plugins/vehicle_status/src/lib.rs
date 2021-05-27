@@ -306,7 +306,9 @@ async fn async_run(running_flag: Arc<Mutex<bool>>, error_flag: Arc<Mutex<bool>>)
 
 #[no_mangle]
 pub extern "C" fn run(running_flag: Arc<Mutex<bool>>, error_flag: Arc<Mutex<bool>>) -> i32 {
-    env_logger::init();
+    let _ = env_logger::try_init().map_err(|e| {
+        error!("vehicle status init env log failed: {:?}", e);
+    });
 
     let rt = match Runtime::new() {
         Ok(r) => r,

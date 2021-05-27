@@ -76,6 +76,10 @@ async fn async_run(running_flag: Arc<Mutex<bool>>, error_flag: Arc<Mutex<bool>>)
 
 #[no_mangle]
 pub extern "C" fn run(running_flag: Arc<Mutex<bool>>, error_flag: Arc<Mutex<bool>>) -> i32 {
+    let _ = env_logger::try_init().map_err(|e| {
+        error!("traffic light init env log failed: {:?}", e);
+    });
+    
     let rt = match Runtime::new() {
         Ok(r) => r,
         Err(e) => {
