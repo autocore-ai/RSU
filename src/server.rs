@@ -181,7 +181,7 @@ pub async fn send(center_db_url: String, duration: u64) {
                     if res.status() != 200 {
                         error!("send plugins status to center db failed, url:{}, reason {:?}", center_db_url, res);
                     } else {
-                        info!("send plugin state successfully");
+                        debug!("send plugin state successfully");
                     }
                 },
                 Err(e) => {

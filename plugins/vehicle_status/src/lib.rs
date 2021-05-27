@@ -222,7 +222,7 @@ async fn receive_vh_status(vh_path: String, error_flag: Arc<Mutex<bool>>) -> Res
                 }
             };
 
-            // debug!("receive vehicle state: {:?}", vh_status);
+            debug!("receive vehicle state: {:?}", vh_status);
             // let vh_id = &vh_status.id;
             let mut vh_status_map = match VEHICLESTATUSMAP.lock(){
                 Ok(map) => map,
