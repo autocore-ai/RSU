@@ -222,7 +222,7 @@ async fn receive_vh_status(vh_path: String, error_flag: Arc<Mutex<bool>>) -> Res
                 }
             };
 
-            // debug!("receive vehicle state: {:?}", vh_status);
+            debug!("receive vehicle state: {:?}", vh_status);
             // let vh_id = &vh_status.id;
             let mut vh_status_map = match VEHICLESTATUSMAP.lock(){
                 Ok(map) => map,
@@ -306,7 +306,9 @@ async fn async_run(running_flag: Arc<Mutex<bool>>, error_flag: Arc<Mutex<bool>>)
 
 #[no_mangle]
 pub extern "C" fn run(running_flag: Arc<Mutex<bool>>, error_flag: Arc<Mutex<bool>>) -> i32 {
-    env_logger::init();
+    let _ = env_logger::try_init().map_err(|e| {
+        error!("vehicle status init env log failed: {:?}", e);
+    });
 
     let rt = match Runtime::new() {
         Ok(r) => r,

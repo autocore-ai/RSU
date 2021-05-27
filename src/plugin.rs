@@ -95,7 +95,7 @@ impl Plugin {
                     ret
                 },
                 Err(e) => {
-                    error!("handle join failed {:?}", e);
+                    error!("handle join failed: {:?}", e);
                     Err(format!("stop plugin failed: {:?}", e))
                 }
             }
@@ -160,7 +160,7 @@ impl PluginMgr {
             let path = info["path"].as_str().ok_or("read plugin path failed")?;
             let active = info["active"].as_bool().ok_or("read plugin active failed")?;
             obj.add_plugin_inner(name, path, active).expect("initial plugin manage failed: ");
-            info!("plugin added, name:{:?}, path: {}, actice: {}", name, path, active);
+            info!("plugin added, name:{:?}, path: {}, active: {}", name, path, active);
         }
         Ok(obj)
     }
@@ -175,7 +175,7 @@ impl PluginMgr {
         let mut plugin = Plugin::new(&plugin_info.path[..])?;
 
         plugin.start()?;
-        debug!("start up plugin[{}] successful", name);
+        debug!("plugin[{}] started up successfully", name);
         
         self.plugins.insert(String::from(name), plugin);
         Ok(format!("plugin[{}] is running", name))
@@ -184,7 +184,7 @@ impl PluginMgr {
     pub fn start_plugin(&mut self, name: &str) -> Result<String, String> {
         let desc = self.start_plugin_inner(name)?;
         self.flush_cfg_to_file()?;
-        info!("start up plugin[{}] successful", name);
+        info!("plugin[{}] started up successfully", name);
         Ok(desc)
     }
 
@@ -264,10 +264,10 @@ impl PluginMgr {
                 let plugin = self.plugins.get_mut(name).ok_or(format!("get plugin[{}] failed from plugins", name))?;
                 match plugin.check() {
                     Ok(_) => {
-                        debug!("plugin {} is running", name);
+                        debug!("plugin[{}] is running", name);
                     },
                     Err(_) => {
-                        error!("plugin running error, now stop plugin: {}", name);
+                        error!("plugin run failed, stop plugin: {}", name);
                         plugin.stop()?;
                         self.plugins.remove(name);
                         plugin_info.active = false;

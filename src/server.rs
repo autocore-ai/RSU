@@ -42,7 +42,8 @@ pub async fn server(port: String) -> tide::Result<()> {
             Ok(v) => v,
             Err(e) => return Ok(json!({ "status": -1, "message": format!("param parse into json wrong: {:?}", e)}))
         };
-        
+        info!("received update plugin message: {:?}", plugin_decoded);
+
         if !plugin_obj.is_object() {
             return Ok(json!({ "status": -1, "message": "params are wrong, ex: {\"name\": \"traffic_light\", \"active\": true}"}))
         }
@@ -56,19 +57,21 @@ pub async fn server(port: String) -> tide::Result<()> {
             Some(ac) => ac.as_bool().unwrap(),
             None => return Ok(json!({ "status": -1, "message": "need param: active"}))
         };
+
+        debug!("update plugin state ...");
         {
             let mut pm_locked = PM.lock().unwrap();
             let pm = pm_locked.as_mut().unwrap();
             if active {
                 match pm.start_plugin(&name){
                     Ok(res) => return Ok(json!({ "status": 1, "message": res})),
-                    Err(err) => return Ok(json!({ "status": 1, "message": err})),
+                    Err(err) => return Ok(json!({ "status": -1, "message": err})),
                 };
             } else {
                 debug!("begin to stop plugin {}", name);
                 match pm.stop_plugin(&name) {
                     Ok(res) => return Ok(json!({ "status": 1, "message": res})),
-                    Err(err) => return Ok(json!({ "status": 1, "message": err})),
+                    Err(err) => return Ok(json!({ "status": -1, "message": err})),
                 };
             }
         }
@@ -148,7 +151,7 @@ pub async fn server(port: String) -> tide::Result<()> {
 }
 
 
-// 1s发送一次红绿灯结果
+// send plugin state
 pub async fn send(center_db_url: String, duration: u64) {
     if center_db_url == "" {
         error!("center_db_url is empty ......");
@@ -162,25 +165,29 @@ pub async fn send(center_db_url: String, duration: u64) {
             let pm = pm_locked.as_mut().unwrap();
             match pm.check_plugin() {
                 Ok(_) => {
-                    debug!("check plugin successful");
+                    debug!("plugins checked successfully");
                 },
                 Err(e) => {
-                    error!("check plugins error: {:?}", e)
+                    error!("plugins checked failed: {:?}", e);
                 },
             };
+            
             match reqwest::Client::new()
-                .put(&center_db_url)
-                .json(&serde_json::json!(pm.plugin_cfg))
-                .send()
-                .await {
-                    Ok(res) => {
-                        if res.status() != 200 {
-                            error!("send plugins status to center db failed, url:{}, reason {:?}", center_db_url, res)
-                        }},
-                    Err(e) => {
-                        error!("send plugins status to center db failed, url:{}, reason {:?}", center_db_url, e)
+            .put(&center_db_url)
+            .json(&serde_json::json!(pm.plugin_cfg))
+            .send()
+            .await {
+                Ok(res) => {
+                    if res.status() != 200 {
+                        error!("send plugins status to center db failed, url:{}, reason {:?}", center_db_url, res);
+                    } else {
+                        debug!("send plugin state successfully");
                     }
+                },
+                Err(e) => {
+                    error!("send plugins status to center db failed, url:{}, reason {:?}", center_db_url, e);
                 }
+            };
         }
         tokio::time::sleep_until(now.checked_add(Duration::from_secs(duration)).unwrap()).await;
     }
